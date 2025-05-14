@@ -1,0 +1,64 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.eggs/
+dist/
+build/
+sdist/
+xar/
+
+*.egg-info/
+*.whl
+MANIFEST
+
+# Environments
+.venv
+venv/
+env/
+ENV/
+virtualenv/
+myenv/
+instance/
+_build/
+develop-eggs/
+new_venv/
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  (e.g. config.py.in, setup.cfg.in or a script that copies DLLs or binary files)
+#  in the "build" directory. Then, PyInstaller "builds" the .exe as well.
+#  Once done, the "build" directory is not needed anymore, but it is often
+#  kept around.
+#
+#  If you do not have a "build" directory, you can safely remove these lines.
+build/
+develop-eggs/
+dist/
+*.spec
+
+# Testing
+*.log
+.tox/
+nosetests.xml
+coverage/
+htmlcov/
+.pytest_cache/
+
+# Editor-related
+.vscode/
+.idea/
+*.swp
+*~
+tmp/
+*.bak
+*.orig
+*.py.save
+
+# System files
+.DS_Store
+old/
+
+*.mp4
