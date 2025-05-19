@@ -80,9 +80,8 @@ class LandingWindow(QMainWindow):
                 }}
 
                 QPushButton:hover {{
-                    background-color: {constants.WHITE};
-                    color: {constants.PRIMARY_400};
-                    border: 2px solid {constants.WHITE};
+                    background-color: {constants.PRIMARY_600};
+                    border: 2px solid {constants.PRIMARY_600};
                 }}
             """
         )

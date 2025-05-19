@@ -80,7 +80,7 @@ class LoginWindow(QWidget):
 
         # --- Widgets ---
 
-        image_path = os.path.join("imgs", "simplified_splash.png")
+        image_path = os.path.join("imgs", "simplified-splash.png")
         splash_image = QLabel()
         pixmap = QPixmap(image_path)
         # Scale pixmap while preserving aspect ratio if needed
@@ -114,6 +114,16 @@ class LoginWindow(QWidget):
 
         self.login_button = QPushButton("Login")
         self.login_button.setObjectName("LoginButton")  # For specific styling
+        self.login_button.setStyleSheet(f"""
+            QPushButton#LoginButton {{
+                background-color: {constants.PRIMARY_800};
+                color: {constants.WHITE};
+            }}
+            QPushButton#LoginButton:hover {{
+                background-color: {constants.PRIMARY_600};
+                border: 2px solid {constants.PRIMARY_600};
+            }}
+        """)
         self.login_button.setFont(button_font)
         self.login_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.login_button.setFixedWidth(200)
@@ -131,6 +141,19 @@ class LoginWindow(QWidget):
         self.create_account_button.setObjectName("CreateAccountButton")  # For styling
         self.create_account_button.setFont(input_font)  # Slightly less prominent font
         self.create_account_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.create_account_button.setStyleSheet(
+            f"""
+            QPushButton#CreateAccountButton {{
+                background-color: transparent;
+                color: {constants.WHITE};
+                border: 2px solid {constants.WHITE};
+            }}
+            QPushButton#CreateAccountButton:hover {{
+                background-color: {constants.WHITE};
+                color: {constants.PRIMARY_400};
+            }}
+        """
+        )
         self.create_account_button.setFixedWidth(200)
         self.create_account_button.clicked.connect(self._handle_create_account)
 
@@ -141,25 +164,25 @@ class LoginWindow(QWidget):
         # Center the form elements vertically and horizontally
         layout.addStretch(1)
         layout.addWidget(splash_image, alignment=Qt.AlignmentFlag.AlignCenter)
-        layout.setSpacing(30)
+        layout.setSpacing(40)
 
         layout.addWidget(subheading_label, alignment=Qt.AlignmentFlag.AlignCenter)
-        layout.addSpacing(20)  # Extra space after title
+        layout.addSpacing(40)  # Extra space after title
 
         # Email Input Group
         layout.addWidget(self.email_input, alignment=Qt.AlignmentFlag.AlignCenter)
-        layout.setSpacing(5)
+        layout.setSpacing(10)
 
         # Password Input Group
         layout.addWidget(self.password_input, alignment=Qt.AlignmentFlag.AlignCenter)
-        layout.addSpacing(15)  # Extra space before buttons
+        layout.addSpacing(20)  # Extra space before buttons
 
         # ButtonssetMaximumWidth
         layout.addWidget(self.login_button, alignment=Qt.AlignmentFlag.AlignCenter)
-        layout.addSpacing(20)
+        layout.addSpacing(40)
         layout.addWidget(no_account_label, alignment=Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(line, alignment=Qt.AlignmentFlag.AlignCenter)
-        layout.addSpacing(15)
+        layout.addSpacing(20)
         layout.addWidget(
             self.create_account_button, alignment=Qt.AlignmentFlag.AlignCenter
         )

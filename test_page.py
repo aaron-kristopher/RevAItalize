@@ -879,16 +879,15 @@ class MainWindow(QMainWindow):
         self.menu_button.setStyleSheet(
             f"""
             QPushButton {{
-                background-color: {constants.PRIMARY_700};
+                background-color: {constants.PRIMARY_800};
                 color: {constants.WHITE};
                 padding: 5px 10px;
-                border: 2px solid {constants.PRIMARY_700};
                 border-radius: 8px;
                 font-size: 18px;
             }}
             QPushButton:hover {{
-                background-color: transparent;
-                color: {constants.PRIMARY_700};
+                background-color: {constants.PRIMARY_600};
+                color: {constants.WHITE};
             }}
             """
         )
@@ -901,7 +900,7 @@ class MainWindow(QMainWindow):
         self.prediction_label = QLabel("Waiting for prediction")
         self.prediction_label.setFont(self.prediction_font)
         self.prediction_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.prediction_label.setStyleSheet(f"color: {constants.PRIMARY_700};")
+        self.prediction_label.setStyleSheet(f"color: {constants.PRIMARY_800};")
         top_bar.addWidget(self.prediction_label, 1, alignment=Qt.AlignmentFlag.AlignCenter)
         
         # Add RevAItalize logo on the right
@@ -948,13 +947,13 @@ class MainWindow(QMainWindow):
         self.exercise_selector.setStyleSheet(
             f"""
             QComboBox {{
-                background-color: {constants.PRIMARY_700};
+                background-color: {constants.PRIMARY_800};
                 color: {constants.WHITE};
                 padding: 10px 20px;
                 border-radius: 8px;
             }}
             QComboBox:hover {{
-                background-color: {constants.PRIMARY_900};
+                background-color: {constants.PRIMARY_600};
             }}
             QComboBox::drop-down {{
                 subcontrol-origin: padding;
@@ -965,7 +964,7 @@ class MainWindow(QMainWindow):
             QComboBox QAbstractItemView {{
                 background-color: {constants.PRIMARY_400};
                 color: {constants.WHITE};
-                selection-background-color: {constants.PRIMARY_700};
+                selection-background-color: {constants.PRIMARY_800};
                 selection-color: {constants.WHITE};
                 border: none;
                 padding: 5px;
@@ -993,9 +992,9 @@ class MainWindow(QMainWindow):
             }}
 
             QPushButton:hover {{
-                background-color: transparent;
-                border: 2px solid {constants.SUCCESS};
-                color: {constants.SUCCESS};
+                background-color: {constants.MINT};
+                border: 2px solid {constants.MINT};
+                color: {constants.WHITE};
             }}
 
         """)
@@ -1043,7 +1042,7 @@ class MainWindow(QMainWindow):
 
         progress_label = QLabel("Progress:")
         progress_label.setFont(self.progress_font)
-        progress_label.setStyleSheet(f"color: {constants.PRIMARY_700};")
+        progress_label.setStyleSheet(f"color: {constants.PRIMARY_800};")
         bottom_progress_layout.addWidget(progress_label)
         bottom_progress_layout.setContentsMargins(60, 0, 60, 0)
         
@@ -1070,7 +1069,7 @@ class MainWindow(QMainWindow):
                 button.setStyleSheet(
                     f"""
                     QPushButton {{
-                        background-color: {constants.PRIMARY_700};
+                        background-color: {constants.PRIMARY_800};
                         color: {constants.WHITE};
                         border-radius: 20px;
                         font-weight: bold;
@@ -1285,7 +1284,7 @@ class MainWindow(QMainWindow):
                 self.prediction_label.setText(f"Prediction: <font color='{constants.SUCCESS}'>{self.current_prediction}</font>")
             elif self.current_prediction == "Waiting" or self.current_prediction == "Waiting for prediction":
                 # Use default color for waiting
-                self.prediction_label.setText(f"Prediction: <font color='{constants.PRIMARY_700}'>{self.current_prediction}</font>")
+                self.prediction_label.setText(f"Prediction: <font color='{constants.PRIMARY_800}'>{self.current_prediction}</font>")
             else:
                 # Use red for incorrect predictions
                 self.prediction_label.setText(f"Prediction: <font color='{constants.DANGER}'>{self.current_prediction}</font>")
@@ -1303,7 +1302,7 @@ class MainWindow(QMainWindow):
                 button.setStyleSheet(
                     f"""
                     QPushButton {{
-                        background-color: {constants.PRIMARY_700};
+                        background-color: {constants.PRIMARY_800};
                         color: {constants.WHITE};
                         border-radius: 20px;
                     }}
@@ -1316,7 +1315,7 @@ class MainWindow(QMainWindow):
                 button.setStyleSheet(
                     f"""
                     QPushButton {{
-                        background-color: {constants.PRIMARY_700};
+                        background-color: {constants.PRIMARY_800};
                         color: {constants.WHITE};
                         border-radius: 30px;
                         font-weight: bold;
@@ -1328,8 +1327,8 @@ class MainWindow(QMainWindow):
                     f"""
                     QPushButton {{
                         background-color: transparent;
-                        color: {constants.PRIMARY_700};
-                        border: 2px solid {constants.PRIMARY_700};
+                        color: {constants.PRIMARY_800};
+                        border: 2px solid {constants.PRIMARY_800};
                         border-radius: 20px;
                     }}
                     """
@@ -1404,7 +1403,7 @@ class MainWindow(QMainWindow):
                     most_common_error = max(filtered_errors.items(), key=lambda x: x[1])
                     error_type, _ = most_common_error
                     # Simplified format without occurrence count
-                    error_note = f"Majority Error: {error_type}"
+                    error_note = f"Major Errors in {error_type}"
             
             # Record the exercise session with the error count
             success = self.session_manager.record_exercise(
@@ -1438,7 +1437,7 @@ class MainWindow(QMainWindow):
                 self.prediction_label.setText(f"Prediction: <font color='{constants.SUCCESS}'>{prediction}</font>")
             elif prediction == "Waiting" or prediction == "Waiting for prediction":
                 # Use default color for waiting
-                self.prediction_label.setText(f"Prediction: <font color='{constants.PRIMARY_700}'>{prediction}</font>")
+                self.prediction_label.setText(f"Prediction: <font color='{constants.PRIMARY_800}'>{prediction}</font>")
             else:
                 # Use red for incorrect predictions
                 self.prediction_label.setText(f"Prediction: <font color='{constants.DANGER}'>{prediction}</font>")
