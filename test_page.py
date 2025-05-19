@@ -615,6 +615,28 @@ class MainWindow(QMainWindow):
             # Reset repetition tracking
             self.current_rep = 0
             self.incorrect_reps = 0
+            self.error_types = {}  # Reset error types tracking
+            self.current_rep_has_error = False  # Reset error flag
+            self.rep_errors = []  # Reset list of reps with errors
+            self.showing_rep_message = False  # Reset message flag
+            
+            # Reset buttons to their default state
+            if hasattr(self, 'rep_buttons') and self.rep_buttons:
+                for i, button in enumerate(self.rep_buttons, 1):
+                    button.setText(str(i))  # Set text to button number (1-based)
+                    button.setFixedSize(40, 40)
+                    button.setStyleSheet(
+                        f"""
+                        QPushButton {{
+                            background-color: transparent;
+                            color: {constants.PRIMARY_800};
+                            border: 2px solid {constants.PRIMARY_800};
+                            border-radius: 20px;
+                        }}
+                        """
+                    )
+            
+            # Update buttons to reflect current state
             self.update_rep_buttons()
             
             # Reset prediction label
@@ -1030,15 +1052,6 @@ class MainWindow(QMainWindow):
         """
         )
         self.logo_button.setFlat(True)
-
-        
-        # Create a container for the logo to center it properly
-        # logo_container = QWidget()
-        # logo_layout = QHBoxLayout(logo_container)
-        # logo_layout.setContentsMargins(10, 0, 10, 0)  # Add horizontal padding
-        # logo_layout.addWidget(self.logo_button, alignment=Qt.AlignmentFlag.AlignCenter)
-        
-        # top_progress_layout.addWidget(logo_container)
 
         progress_label = QLabel("Progress:")
         progress_label.setFont(self.progress_font)

@@ -138,8 +138,6 @@ class ExercisesWindow(QMainWindow):
         description_text.setStyleSheet(f"color: {constants.PRIMARY_800}; margin-top: 50px;")
         
         scroll_content_layout_main.addWidget(description_text)
-        # content_layout.addWidget(description_text) # Moved
-        # content_layout.addSpacing(20) # Moved spacing into scroll_content_layout_main or manage within it
         
         exercise_layout = QHBoxLayout()
         exercise_layout.setSpacing(0)  
@@ -163,8 +161,6 @@ class ExercisesWindow(QMainWindow):
         exercise_layout.addWidget(hiding_container, 1)  
         
         scroll_content_layout_main.addLayout(exercise_layout)
-        # content_layout.addLayout(exercise_layout) # Moved
-        # content_layout.addSpacing(10) # Moved
         
         # Data utilization section
         data_title = QLabel("Data Utilization")
@@ -188,16 +184,12 @@ class ExercisesWindow(QMainWindow):
         scroll_content_layout_main.addWidget(data_title)
         scroll_content_layout_main.addSpacing(10)
         scroll_content_layout_main.addWidget(data_desc)
-        # content_layout.addWidget(data_title) # Moved
-        # content_layout.addSpacing(10) # Moved
-        # content_layout.addWidget(data_desc) # Moved
         
         scroll_content_layout_main.addStretch()
         scroll_content_widget_main.setLayout(scroll_content_layout_main)
         scroll_area_main.setWidget(scroll_content_widget_main)
         
         content_layout.addWidget(scroll_area_main, 1) # Add the scroll area to the main content layout, stretch factor 1
-        # content_layout.addStretch() # Moved into scroll_content_layout_main
         
         # Test exercises button (remains at the bottom of content_area, after scroll area)
         button_layout = QHBoxLayout()
@@ -231,37 +223,43 @@ class ExercisesWindow(QMainWindow):
         main_layout.addWidget(content_area, 1)
         
         self.main_view.setLayout(main_layout)
-    
     def create_clickable_image(self, title, image_path):
-        # container widget
-        container = QWidget()
-        container_layout = QVBoxLayout(container)
-        container_layout.setContentsMargins(0, 0, 0, 0)
-        container_layout.setSpacing(0)
+        container = QFrame()
+        container.setStyleSheet(f"""
+            QFrame {{
+                background-color: {constants.PRIMARY_500};
+                border: none;
+                border-radius: 10px;
+            }}
+        """)
         
-        image_label = QLabel()
-        image_label.setCursor(Qt.CursorShape.PointingHandCursor)
+        layout = QVBoxLayout(container)
+        
+        # Image
+        img_label = QLabel()
+        img_label.setCursor(Qt.CursorShape.PointingHandCursor)
         
         if os.path.exists(image_path):
             pixmap = QPixmap(image_path)
-            image_label.setPixmap(pixmap.scaled(410, 400, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+            img_label.setPixmap(pixmap.scaled(200, 150, Qt.AspectRatioMode.KeepAspectRatio))
         else:
-            placeholder_pixmap = QPixmap(410, 400)
-            placeholder_pixmap.fill(Qt.GlobalColor.transparent)
-            image_label.setPixmap(placeholder_pixmap)
-            image_label.setStyleSheet("background-color: #90c9f0; border-radius: 10px;")
+            img_label.setText("Image not found")
         
-        image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        image_label.setMinimumSize(410, 400)
-        image_label.setMaximumSize(410, 400)
+        img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        container_layout.addWidget(image_label)
+        # Title
+        title_label = QLabel(title)
+        title_label.setFont(font_utils.get_font(size=14, weight=constants.WEIGHT_BOLD))
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_label.setStyleSheet(f"color: {constants.WHITE};")
         
-        return container, image_label
-    
+        layout.addWidget(img_label)
+        layout.addWidget(title_label)
+        
+        return container, img_label
+
     def create_exercise_detail_view(self, exercise_name, video_path):
         detail_view = QWidget()
-        
         main_layout = QHBoxLayout()
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
@@ -269,6 +267,7 @@ class ExercisesWindow(QMainWindow):
         sidebar = self.create_sidebar()
         main_layout.addWidget(sidebar)
         
+        # Content area
         content_area = QWidget()
         content_area.setStyleSheet(f"background-color: {constants.PRIMARY_100};")
         
@@ -306,10 +305,9 @@ class ExercisesWindow(QMainWindow):
             logo_image.setPixmap(QIcon(constants.REVAITALIZE_LOGO_PATH).pixmap(QSize(220, 50)))
         else:
             logo_image.setText("RevAItalize")
-            logo_image.setFont(poppins_bold_32)
+            logo_image.setFont(font_utils.get_font(size=32, weight=constants.WEIGHT_BOLD))
             logo_image.setStyleSheet(f"color: {constants.PRIMARY_800};")
         logo_image.setAlignment(Qt.AlignmentFlag.AlignRight)
-        top_bar.addStretch()
         top_bar.addWidget(logo_image)
         
         content_layout.addLayout(top_bar)
@@ -346,38 +344,15 @@ class ExercisesWindow(QMainWindow):
             QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
                 background: none;
             }}
-
-            QScrollBar:horizontal {{
-                border: 1px solid {constants.PRIMARY_400};
-                background: {constants.PRIMARY_200};
-                height: 12px;
-                margin: 0px 0px 0px 0px;
-            }}
-            QScrollBar::handle:horizontal {{
-                background: {constants.PRIMARY_700};
-                min-width: 25px;
-                border-radius: 5px;
-            }}
-            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
-                border: none;
-                background: none;
-                width: 0px; /* Hide default arrows */
-            }}
-            QScrollBar::left-arrow:horizontal, QScrollBar::right-arrow:horizontal {{
-                background: none;
-            }}
-            QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {{
-                background: none;
-            }}
         """)
-
+        
         scroll_content_widget_detail = QWidget()
         scroll_content_layout_detail = QVBoxLayout(scroll_content_widget_detail)
-        scroll_content_layout_detail.setContentsMargins(0,0,0,0) # Adjust as needed
-        scroll_content_layout_detail.setSpacing(0) # Adjust as needed, was implicitly managed by stretches
-
-        scroll_content_layout_detail.addStretch(1) # Original first stretch
-
+        scroll_content_layout_detail.setContentsMargins(0,0,0,0)
+        scroll_content_layout_detail.setSpacing(0)
+        
+        scroll_content_layout_detail.addStretch(1)
+        
         exercise_content = QHBoxLayout()
         exercise_content.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
@@ -391,6 +366,7 @@ class ExercisesWindow(QMainWindow):
             }}
             """
         )
+        video_container.setMaximumHeight(350)
         
         video_layout = QVBoxLayout(video_container)
         video_layout.setContentsMargins(0, 0, 0, 0)  
@@ -398,10 +374,10 @@ class ExercisesWindow(QMainWindow):
         # Video display label
         video_label = QLabel()
         video_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        video_label.setMinimumSize(420, 390) 
-        video_label.setMaximumSize(420, 390) 
+        video_label.setMinimumSize(420, 280) 
+        video_label.setMaximumSize(420, 280) 
         video_label.setScaledContents(False)
-        # video_label.setStyleSheet("border: 2px solid {constants.PRIMARY_600};")
+        video_label.setStyleSheet(f"background-color: {constants.PRIMARY_400}; border-radius: 8px;")
         
         video_layout.addWidget(video_label)
         
@@ -419,22 +395,69 @@ class ExercisesWindow(QMainWindow):
         subtitle_label = QLabel(exercise_name)
         subtitle_label.setFont(font_utils.get_font(size=18, weight=constants.WEIGHT_SEMIBOLD))
         subtitle_label.setStyleSheet(f"color: {constants.PRIMARY_700}; margin-top: 25px;")
+
+        # Instructions text based on exercise type
+        instruction_text = QLabel()
+        if exercise_name == "Torso Rotation":
+            instruction_text.setText(
+                "  <b>Target Areas:</b> Spine, core, and obliques<br>"
+                "  <b>Purpose:</b> Improves spinal mobility, flexibility, and reduces pain.<br><br>"
+                "  <b>Instructions:</b><br><br>"
+                "  <b>1. Starting Position:</b><br>"
+                "     • Sit upright on a chair with your feet flat on the floor, shoulder-width apart.<br>"
+                "     • Keep your back straight and shoulders relaxed.<br><br>"
+                "  <b>2. Execution:</b><br>"
+                "     • Slowly rotate your upper body to the right while keeping your hips and lower body stable.<br>"
+                "     • Hold the end position briefly (2–3 seconds), feeling a gentle stretch along your side and spine.<br>"
+                "     • Return to the center with control.<br>"
+                "     • Repeat the same movement to the left.<br><br>"
+                "  <b>3. Tips:</b><br>"
+                "     • Do not allow your knees or hips to twist.<br>"
+                "     • Avoid jerky or rapid movements; keep it slow and fluid."
+            )
+        elif exercise_name == "Flank Stretch":
+            instruction_text.setText(
+                "  <b>Target Areas:</b> Side torso, obliques, and lower back<br>"
+                "  <b>Purpose:</b> Enhances flexibility and relieves tension in the lower back.<br><br>"
+                "  <b>Instructions:</b><br><br>"
+                "  <b>1. Starting Position:</b><br>"
+                "     • Sit upright on a stable chair.<br>"
+                "     • Keep your back straight and feet flat on the floor.<br><br>"
+                "  <b>2. Execution:</b><br>"
+                "     • Lift your right arm straight overhead, keeping your arm close to your ear.<br>"
+                "     • Inhale deeply, and as you exhale, slowly bend your torso to the left—away from the lifted arm.<br>"
+                "     • Feel the stretch along your right side.<br>"
+                "     • Hold for 5–10 seconds, breathing steadily.<br>"
+                "     • Return to the center and switch sides.<br><br>"
+                "  <b>3. Tips:</b><br>"
+                "     • Avoid leaning forward or twisting.<br>"
+                "     • Do not over extend.<br>"
+                "     • Keep your arm extended and your neck relaxed."
+            )
+        else:  # Hiding Face
+            instruction_text.setText(
+                "  <b>Target Areas:</b> Shoulders, upper back, neck, and core<br>"
+                "  <b>Purpose:</b> Promotes upper body mobility, core engagement, and spinal stability.<br><br>"
+                "  <b>Instructions:</b><br><br>"
+                "  <b>1. Starting Position:</b><br>"
+                "     • Sit or stand upright with your feet shoulder-width apart.<br>"
+                "     • Raise both arms to shoulder height with elbows bent at 90 degrees in front of your face, as if \"hiding your face\" behind your forearms.<br>"
+                "     • Your forearms should point straight up (like the letter \"L\").<br><br>"
+                "  <b>2. Execution:</b><br>"
+                "     • Slowly rotate both elbows outwards away from each other (like a goalpost).<br>"
+                "     • Engage your core and upper back muscles during the movement.<br>"
+                "     • Pause briefly, then return to the starting position with control.<br><br>"
+                "  <b>3. Tips:</b><br>"
+                "     • Keep your shoulders level and avoid shrugging.<br>"
+                "     • Maintain a straight spine and stable hips.<br>"
+                "     • Avoid jerky arm movements—smooth control is key."
+            )
         
-        # Instructions text
-        instruction_text = QLabel(
-            "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed "
-            "do eiusmod tempor incididunt ut labore et dolore magna "
-            "aliqua. Ut enim ad minim veniam, quis nostrud exercitation "
-            "ullamco laboris nisi ut aliquip ex ea commodo consequat. "
-            "Duis aute irure dolor in reprehenderit in voluptate velit esse "
-            "cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat "
-            "cupidatat non proident, sunt in culpa qui officia deserunt "
-            "mollit anim id est laborum."
-        )
         instruction_text.setFont(font_utils.get_font(size=14))
         instruction_text.setWordWrap(True)
         instruction_text.setAlignment(Qt.AlignmentFlag.AlignJustify)
         instruction_text.setStyleSheet(f"color: {constants.PRIMARY_800};")
+        instruction_text.setTextFormat(Qt.TextFormat.RichText)
         
         instructions_container.addWidget(title_label)
         instructions_container.addWidget(subtitle_label)
@@ -442,18 +465,14 @@ class ExercisesWindow(QMainWindow):
         instructions_container.addWidget(instruction_text)
         instructions_container.addStretch()
         
-        exercise_content.addLayout(instructions_container, 1)  
+        exercise_content.addLayout(instructions_container, 1)
         
         scroll_content_layout_detail.addLayout(exercise_content)
-        # content_layout.addLayout(exercise_content) # Moved
-        
-        scroll_content_layout_detail.addStretch(1) # Original second stretch
+        scroll_content_layout_detail.addStretch(1)
         scroll_content_widget_detail.setLayout(scroll_content_layout_detail)
         scroll_area_detail.setWidget(scroll_content_widget_detail)
         
-        content_layout.addWidget(scroll_area_detail, 1) # Add scroll area, stretch factor 1
-        # content_layout.addStretch(1) # Moved
-        # content_layout.addStretch(1) # Moved
+        content_layout.addWidget(scroll_area_detail, 1)
         
         button_container = QHBoxLayout()
         button_container.addStretch()
@@ -478,7 +497,7 @@ class ExercisesWindow(QMainWindow):
             }}
             """
         )
-        test_button.setFixedWidth(180)  
+        test_button.setFixedWidth(180)
         
         button_container.addWidget(test_button)
         content_layout.addLayout(button_container)
@@ -486,96 +505,63 @@ class ExercisesWindow(QMainWindow):
         main_layout.addWidget(content_area, 1)
         detail_view.setLayout(main_layout)
         
-        # Setup video playback with OpenCV
-        video_full_path = os.path.join(self.script_dir, video_path)
-        if os.path.exists(video_full_path):
-            # Initialize video capture
-            cap = cv2.VideoCapture(video_full_path)
-            if cap.isOpened():
-                # Get video properties
-                fps = cap.get(cv2.CAP_PROP_FPS)
-                if fps <= 0:
-                    fps = 30
-                
-                # Create a timer for smoother playback
-                timer = QTimer()
-                timer.setInterval(int(1000 / fps))  # Set timer interval based on video FPS
-                
-                # Store references to prevent garbage collection
-                detail_view.video_cap = cap
-                detail_view.video_label = video_label
-                detail_view.video_timer = timer
-                
-                # Preload frames for smoother playback
-                max_preload = 30  # Maximum number of frames to preload
-                frames = []
-                frame_count = 0
-                
-                while frame_count < max_preload:
-                    ret, frame = cap.read()
-                    if not ret:
-                        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)  # Loop back to start
-                        break
-                    
-                    # Convert frame to RGB format
-                    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    frames.append(frame_rgb)
-                    frame_count += 1
-                
-                # Reset video to beginning
+        # Set up video playback
+        self.video_full_path = os.path.join(self.script_dir, video_path)
+        
+        # Define a function to update the video frame (will be connected to a timer)
+        def update_frame():
+            ret, frame = cap.read()
+            if not ret:
+                # If reached the end of the video, reset to beginning
                 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                
-                # Store preloaded frames
-                detail_view.preloaded_frames = frames
-                detail_view.current_frame_index = 0
-                detail_view.total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-                
-                def update_frame():
-                    if not hasattr(detail_view, 'video_cap') or not detail_view.video_cap.isOpened():
-                        pass
-                    
-                    ret, frame = detail_view.video_cap.read()
-                    
-                    if not ret:
-                        detail_view.video_cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                        ret, frame = detail_view.video_cap.read()
-                        if not ret: 
-                            return
-                    
-                    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    
-                    h, w, ch = frame_rgb.shape
-                    q_img = QImage(frame_rgb.data, w, h, ch * w, QImage.Format.Format_RGB888)
-                    
-                    pixmap = QPixmap.fromImage(q_img)
-                    
-                    label_size = detail_view.video_label.size()
-                    scaled_pixmap = pixmap.scaled(
-                        label_size.width(), 
-                        label_size.height(),
-                        Qt.AspectRatioMode.KeepAspectRatio, 
-                        Qt.TransformationMode.SmoothTransformation
-                    )
-                    
-                    # Set the pixmap to the label
-                    detail_view.video_label.setPixmap(scaled_pixmap)
-                
-                # Connect timer to update function
-                timer.timeout.connect(update_frame)
-                
-                # Start playback immediately
-                timer.start()
-                
-                # Init first frame
-                update_frame()
-            else:
-                video_label.setText(f"Could not open video: {video_path}")
+                ret, frame = cap.read()
+                if not ret:
+                    return
+            
+            # Convert the frame to RGB format (from BGR)
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            
+            # Scale the frame to fit the label while maintaining aspect ratio
+            h, w, ch = frame_rgb.shape
+            label_w, label_h = video_label.width(), video_label.height()
+            
+            # Calculate scaling factor to fit within the label
+            scale = min(label_w / w, label_h / h)
+            new_w, new_h = int(w * scale), int(h * scale)
+            
+            # Resize the frame
+            frame_resized = cv2.resize(frame_rgb, (new_w, new_h))
+            
+            # Convert to QImage and then to QPixmap
+            bytes_per_line = ch * new_w
+            q_img = QImage(frame_resized.data, new_w, new_h, bytes_per_line, QImage.Format.Format_RGB888)
+            pixmap = QPixmap.fromImage(q_img)
+            
+            # Set the pixmap to the label
+            video_label.setPixmap(pixmap)
+        
+        # Open the video file
+        cap = cv2.VideoCapture(self.video_full_path)
+        if not cap.isOpened():
+            print(f"Error: Could not open video file {self.video_full_path}")
+            video_label.setText("Video not available")
+            video_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         else:
-            video_label.setText(f"Video file not found: {video_path}")
+            # Create a timer to update the video frame
+            timer = QTimer(detail_view)
+            timer.timeout.connect(update_frame)
+            timer.start(33)  # Update at approximately 30 fps
+            
+            # Call update_frame once to show the first frame
+            update_frame()
         
         return detail_view
-        
+
+    def update_frame(self):
+        # This method will be implemented for the main view's video playback
+        pass
     def create_sidebar(self):
+        # Create the sidebar for navigation
         sidebar = QWidget()
         sidebar.setFixedWidth(180)
         sidebar.setStyleSheet(f"background-color: {constants.PRIMARY_400};")
@@ -634,7 +620,7 @@ class ExercisesWindow(QMainWindow):
         )
         sidebar_layout.addWidget(home_button)
         
-        # Exercises button 
+        # Exercises button
         exercises_button = QPushButton("  Exercises")
         exercises_button.setFont(font_utils.get_font(size=10))
         exercises_button.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -644,7 +630,7 @@ class ExercisesWindow(QMainWindow):
         exercises_button.setStyleSheet(
             f"""
             QPushButton {{
-                background-color: {constants.PRIMARY_700};
+                background-color: {constants.PRIMARY_600};
                 color: {constants.WHITE};
                 padding: 15px;
                 text-align: left;
@@ -658,18 +644,16 @@ class ExercisesWindow(QMainWindow):
         )
         sidebar_layout.addWidget(exercises_button)
         
-        # Model button 
+        # Model Selection dropdown
         self.model_button = QToolButton()
-        self.model_button.setText("  Model")
+        self.model_button.setText("  Model Selection")
         self.model_button.setFont(font_utils.get_font(size=10))
         self.model_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        
         if os.path.exists(constants.MODEL_ICON_PATH):
             self.model_button.setIcon(QIcon(constants.MODEL_ICON_PATH))
             self.model_button.setIconSize(QSize(18, 18))
-        
-        self.model_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.model_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.model_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.model_button.setArrowType(Qt.ArrowType.NoArrow)
         
         self.model_button.setStyleSheet(
