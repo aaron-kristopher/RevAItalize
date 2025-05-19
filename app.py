@@ -532,10 +532,15 @@ class ApplicationController(QObject):
 
         # Centralized navigation for test/home pages
         self.test_page_window.home_button_clicked.connect(self.show_home_page)
-        self.test_page_window.exercises_button.clicked.connect(self.show_exercise_page)
-        self.test_page_window.model_button.clicked.connect(self.show_model_page)
-        self.test_page_window.profile_button.clicked.connect(self.show_dashboard_page)
-        self.test_page_window.quit_button.clicked.connect(self.handle_close_app)
+        self.test_page_window.exercise_button_clicked.connect(self.show_exercise_page)
+        self.test_page_window.model_button_clicked.connect(self.show_model_page)
+        self.test_page_window.profile_button_clicked.connect(self.show_dashboard_page)
+        self.test_page_window.quit_button_clicked.connect(self.handle_close_app)
+        
+        # Connect model submenu signals
+        self.test_page_window.lstm_clicked.connect(lambda: self.show_model_page('lstm'))
+        self.test_page_window.blazepose_clicked.connect(lambda: self.show_model_page('blazepose'))
+        self.test_page_window.attention_mechanism_clicked.connect(lambda: self.show_model_page('attention'))
 
         # Landing page navigation
         self.landing_window.login_button.clicked.connect(self.show_login_page)

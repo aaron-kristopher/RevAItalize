@@ -2,6 +2,8 @@ import cv2
 import numpy as np
 import tensorflow as tf
 import mediapipe as mp
+from mediapipe import solutions
+from mediapipe.framework.formats import landmark_pb2
 from numba import jit
 from PyQt6.QtWidgets import (
     QApplication,
@@ -104,22 +106,40 @@ def draw_custom_landmarks(image, landmarks, error_indices=None):
     - Red for connections/keypoints in error_indices
     - Green otherwise
     error_indices: list of pose indices (e.g., [11, 13, 15])
+    
+    landmarks: Can be either MediaPipe Pose Solution landmarks (has .landmark attribute) 
+              or MediaPipe Tasks landmarks (direct list of landmarks)
+    
+    Note: Image should already be flipped for correct display
     """
     if not isinstance(error_indices, (list, tuple, set)):
         error_indices = []
     # Define keypoint indices for upper body (11-24)
     upper_body_indices = list(range(11, 25))
-    RED = (199, 0, 57)
-    GREEN = (17, 130, 59)
+    # BGR format colors for OpenCV
+    RED = (182, 0, 18)
+    GREEN = (101, 184, 101)
     height, width, _ = image.shape
+    
+    # Make a copy of the image to draw on
+    output_image = image.copy()
+    
+    # Check if landmarks is from old API (has .landmark attribute) or new Tasks API (direct list)
+    if hasattr(landmarks, 'landmark'):
+        landmark_list = landmarks.landmark
+    else:
+        landmark_list = landmarks  # It's already a list in the Tasks API
 
     # Draw keypoints
     for idx in upper_body_indices:
-        if idx < len(landmarks.landmark):
-            landmark = landmarks.landmark[idx]
-            landmark_px = (int(landmark.x * width), int(landmark.y * height))
+        if idx < len(landmark_list):
+            landmark = landmark_list[idx]
+            # Convert normalized coordinates to pixel values
+            # Flip X coordinate since the image is already flipped
+            landmark_px = (int((1-landmark.x) * width), int(landmark.y * height))
+            # Use BGR color format (OpenCV default)
             color = RED if idx in error_indices else GREEN
-            cv2.circle(image, landmark_px, 5, color, -1)
+            cv2.circle(output_image, landmark_px, 7, color, -1)  # Make points slightly bigger
 
     # Define connections for upper body
     upper_body_connections = [
@@ -136,15 +156,16 @@ def draw_custom_landmarks(image, landmarks, error_indices=None):
     # Draw connections
     for connection in upper_body_connections:
         start_idx, end_idx = connection
-        if start_idx < len(landmarks.landmark) and end_idx < len(landmarks.landmark):
-            start = landmarks.landmark[start_idx]
-            end = landmarks.landmark[end_idx]
-            start_point = (int(start.x * width), int(start.y * height))
-            end_point = (int(end.x * width), int(end.y * height))
+        if start_idx < len(landmark_list) and end_idx < len(landmark_list):
+            start = landmark_list[start_idx]
+            end = landmark_list[end_idx]
+            # Flip X coordinates since the image is already flipped
+            start_point = (int((1-start.x) * width), int(start.y * height))
+            end_point = (int((1-end.x) * width), int(end.y * height))
             color = RED if (start_idx in error_indices or end_idx in error_indices) else GREEN
-            cv2.line(image, start_point, end_point, color, 4)
+            cv2.line(output_image, start_point, end_point, color, 4)
 
-    return cv2.flip(image, 1)
+    return output_image  # No need to flip again, already flipped
 
 
 
@@ -161,6 +182,30 @@ class VideoThread(QThread):
         self.interpreter.allocate_tensors()
         self.input_details = self.interpreter.get_input_details()
         self.output_details = self.interpreter.get_output_details()
+
+        # MediaPipe Tasks setup for BlazePose
+        self.blazepose_model_path = "./models/pose_landmarker_full.task"
+        self.camera_index = 0
+        self.latest_pose_result = None
+        
+        # Initialize MediaPipe Tasks API
+        self.BaseOptions = mp.tasks.BaseOptions
+        self.PoseLandmarker = mp.tasks.vision.PoseLandmarker
+        self.PoseLandmarkerOptions = mp.tasks.vision.PoseLandmarkerOptions
+        self.VisionRunningMode = mp.tasks.vision.RunningMode
+        
+        # Skip the streaming mode and use the image mode instead to avoid async issues
+        self.pose_landmarker = self.PoseLandmarker.create_from_options(
+            self.PoseLandmarkerOptions(
+                base_options=self.BaseOptions(model_asset_path=self.blazepose_model_path),
+                running_mode=self.VisionRunningMode.IMAGE,  # Use IMAGE mode instead of LIVE_STREAM
+                min_pose_detection_confidence=0.90,
+                min_pose_presence_confidence=0.75,
+                min_tracking_confidence=0.90,
+                output_segmentation_masks=False,
+                num_poses=1  # We only need one pose for our application
+            )
+        )
 
         self.SLIDING_AMOUNT = 10
         self.WINDOW_FRAME_AMOUNT = 10
@@ -212,28 +257,40 @@ class VideoThread(QThread):
             dtype=np.float32,
         )
 
-        # Pose detection setup
-        self.mp_pose = mp.solutions.pose
-        self.pose = self.mp_pose.Pose(
-            min_detection_confidence=0.65, min_tracking_confidence=0.65
-        )
-
     # Set the current exercise and update relevant settings
     def set_current_exercise(self, exercise_name):
+        # Acquire the mutex lock for thread safety
         self.mutex.lock()
-        if exercise_name in self.exercise_thresholds:
-            self.current_exercise = exercise_name
-            self.BEST_THRESHOLDS = self.exercise_thresholds[exercise_name]
-            self.exercise_encoding_data = self.exercise_encoding[exercise_name]
-
-            # Clear the deque as the input features have changed
-            self.keypoint_deque.clear()
-            self.predicted_class = "Waiting"  # Reset prediction state
-            self.frames_since_inference = 0
-            print(f"Exercise changed to: {self.current_exercise}")
-        else:
-            print(f"Warning: Exercise '{exercise_name}' not found.")
-        self.mutex.unlock()
+        try:
+            # Check if we're in the middle of a repetition
+            if hasattr(self, 'parent') and self.parent and hasattr(self.parent, 'current_rep'):
+                if self.parent.current_rep > 0 and self.parent.current_rep < self.parent.total_reps:
+                    print("Cannot change exercise in the middle of a repetition")
+                    self.mutex.unlock()
+                    return False
+            
+            # Safe to change exercise
+            if exercise_name in self.exercise_encoding and exercise_name in self.exercise_thresholds:
+                self.current_exercise = exercise_name
+                self.exercise_encoding_data = self.exercise_encoding[exercise_name]
+                self.BEST_THRESHOLDS = self.exercise_thresholds[exercise_name]
+                print(f"Exercise changed to: {exercise_name}")
+                
+                # Clear the keypoint deque to start fresh with the new exercise
+                self.keypoint_deque.clear()
+                self.frames_since_inference = 0
+                self.predicted_class = "Waiting"
+                self.mutex.unlock()
+                return True
+            else:
+                print(f"Warning: Unknown exercise '{exercise_name}'")
+                self.mutex.unlock()
+                return False
+        except Exception as e:
+            print(f"Error changing exercise: {e}")
+            # Make sure to unlock the mutex even if an exception occurs
+            self.mutex.unlock()
+            return False
 
     # Set how many frames to discard/add when sliding the window
     def set_sliding_amount(self, amount):
@@ -253,6 +310,8 @@ class VideoThread(QThread):
             self.min_frame_time = 1.0 / fps
         else:
             print("Invalid FPS value. Must be greater than 0.")
+
+    # We're not using the callback approach anymore since we're using IMAGE mode
 
     def run(self):
         self.running = True
@@ -274,17 +333,16 @@ class VideoThread(QThread):
             )
             self.frame_update.emit(error_frame, "Error")
             return
-
+        
         self.last_frame_timestamp = time.time()
         self.last_frame_time = time.time()
         self.frames_since_inference = 0
 
         while self.running:
-            # ... (your existing frame capture and inference logic)
-            # After updating self.frames_since_inference each frame:
             if not self._enough_frames_emitted and self.frames_since_inference >= 10:
                 self._enough_frames_emitted = True
                 self.enough_frames_signal.emit()
+                
             current_time = time.time()
             elapsed = current_time - self.last_frame_timestamp
 
@@ -312,14 +370,31 @@ class VideoThread(QThread):
 
             self.current_frame_count += 1
 
-            # Process frame
+            # Process frame - keep original BGR frame for drawing
+            # MediaPipe expects RGB input
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = self.pose.process(frame_rgb)
-
+            
+            # Use MediaPipe Tasks API for pose detection
+            frame_timestamp_ms = int(cap.get(cv2.CAP_PROP_POS_MSEC))
+            # Create MediaPipe Image from RGB frame
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame_rgb)
+            
+            # Use synchronous detection instead of async with proper error handling
+            try:
+                result = self.pose_landmarker.detect(mp_image)
+            except ValueError as e:
+                # Handle "Task runner is currently not running" error
+                print(f"Pose detection error: {e}")
+                if "Task runner is currently not running" in str(e):
+                    # The thread is likely being stopped, so exit gracefully
+                    break
+                # For other errors, set result to None and continue
+                result = None
+            
             # Prepare data for display and potential inference
             self.mutex.lock()
             current_pred = self.predicted_class
-            current_exercise = self.current_exercise  # Capture current exercise safely
+            current_exercise = self.current_exercise
             self.mutex.unlock()
 
             # Compute error_indices for coloring
@@ -327,18 +402,25 @@ class VideoThread(QThread):
             if 'yhat_binary' in locals():
                 _, error_indices = get_evaluation_from_binary(yhat_binary, return_error_indices=True)
 
-            if results.pose_landmarks:
+            # Always flip the frame for consistent display
+            frame = cv2.flip(frame_rgb, 1)  # Mirror horizontally for natural viewing
+            
+            if result and result.pose_landmarks and len(result.pose_landmarks) > 0:
+                # Draw landmarks on the flipped RGB frame
                 frame = draw_custom_landmarks(
-                    frame_rgb, results.pose_landmarks, error_indices=error_indices
+                    frame, result.pose_landmarks[0], error_indices=error_indices
                 )
 
-                landmarks = results.pose_landmarks.landmark
+                # Extract landmarks from the first detected pose
+                landmarks = result.pose_landmarks[0]
+                # Extract keypoints using the modified extract_keypoints_numba function
                 kp_np = extract_keypoints_numba(
-                    np.array([lm.x for lm in landmarks], dtype=np.float32),
-                    np.array([lm.y for lm in landmarks], dtype=np.float32),
-                    np.array([lm.z for lm in landmarks], dtype=np.float32),
+                    np.array([landmark.x for landmark in landmarks], dtype=np.float32),
+                    np.array([landmark.y for landmark in landmarks], dtype=np.float32),
+                    np.array([landmark.z for landmark in landmarks], dtype=np.float32),
                     self.keypoints_of_interest,
                 )
+                
                 # Get the one-hot encoding for the current exercise
                 exercise_vec = self.exercise_encoding[current_exercise]
 
@@ -375,8 +457,6 @@ class VideoThread(QThread):
                 # Handle case with no landmarks detected
                 self.mutex.lock()
                 self.predicted_class = "No Person"
-                # Optionally clear the deque if no person is detected for a while
-                # self.keypoint_deque.clear()
                 self.mutex.unlock()
 
             # Update FPS
@@ -393,8 +473,20 @@ class VideoThread(QThread):
             self.mutex.unlock()
             self.frame_update.emit(frame, class_to_emit)
 
-        cap.release()
-        self.pose.close()
+        # Release camera resources
+        if cap.isOpened():
+            cap.release()
+            
+        # Clean up pose landmarker resources
+        if self.pose_landmarker:
+            try:
+                self.pose_landmarker.close()
+            except ValueError:
+                # Safely ignore "Task runner is currently not running" error
+                pass
+            except Exception as e:
+                print(f"Error closing pose landmarker in run method: {e}")
+                
         print("Video thread stopped.")
 
     # Change the camera source
@@ -415,8 +507,26 @@ class VideoThread(QThread):
     # Safely stop the thread
     def stop(self):
         """Safely stop the thread"""
+        # Set running flag to false first to signal the thread to stop
         self.running = False
+        
+        # Wait a short time to allow the thread to exit any processing loops
+        time.sleep(0.1)
+        
+        # Close the pose landmarker to release resources
+        if hasattr(self, 'pose_landmarker') and self.pose_landmarker:
+            try:
+                self.pose_landmarker.close()
+            except ValueError:
+                # Safely ignore "Task runner is currently not running" error
+                pass
+            except Exception as e:
+                print(f"Error closing pose landmarker: {e}")
+                
+        # Wait for the thread to finish
         self.wait()
+        
+        # Release camera resources if they exist
         if hasattr(self, "capture") and self.capture.isOpened():
             self.capture.release()
 
@@ -458,6 +568,9 @@ class MainWindow(QMainWindow):
         # Exercise tracking
         self.current_exercise = "Hiding Face"  # Default exercise
         self.incorrect_reps = 0  # Track incorrect repetitions
+        self.error_types = {}  # Track error types and their frequencies
+        self.current_rep_has_error = False  # Flag to track if current rep has an error
+        self.rep_errors = []  # List to track which reps had errors
         self.current_session_id = None  # Will store the active session ID
         
         # Flag to control prediction label updates
@@ -466,35 +579,51 @@ class MainWindow(QMainWindow):
         self.init_ui()
 
     def change_exercise(self, selected):
-        if self.thread and self.thread.isRunning():
-            self.thread.set_current_exercise(selected)
-            
-        # Update guide video path to match exercise
-        snake_case = selected.lower().replace(" ", "_")
-        # Ensure the path points to a valid file, maybe check existence here
-        potential_path = os.path.join("videos", f"{snake_case}.mp4")
-        # Simple check, adjust as needed for actual file locations/extensions
-        if os.path.exists(potential_path):
-            self.guide_video_path = potential_path
-        else:
-            # Fallback or default video if specific one not found
-            self.guide_video_path = os.path.join("videos", "output_fixed.mp4")
-            print(f"Warning: Video not found for {selected}, using default.")
-
-        # Stop current video and load new one if playing
-        if self.media_player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
-            self.stop_video()
-            
-        # Update current exercise
-        self.current_exercise = selected
+        if not selected:
+            return
         
-        # Reset repetition tracking when exercise changes
-        self.current_rep = 0
-        self.update_rep_buttons()
+        # Update the thread's exercise - only proceed if successful
+        if self.thread:
+            # Pass a reference to self (parent) to the thread for checking rep status
+            if not hasattr(self.thread, 'parent'):
+                self.thread.parent = self
+                
+            # Try to change the exercise
+            if not self.thread.set_current_exercise(selected):
+                print("Could not change exercise at this time")
+                # Revert the combo box selection to the current exercise
+                self.exercise_selector.blockSignals(True)
+                self.exercise_selector.setCurrentText(self.current_exercise)
+                self.exercise_selector.blockSignals(False)
+                return
         
-        # Clear any repetition messages
-        self.showing_rep_message = False
-        self.reset_prediction_label()
+        # Update the guide video path based on the selected exercise
+        exercise_video_map = {
+            "Hiding Face": "hiding_face.mp4",
+            "Torso Rotation": "torso_rotation.mp4",
+            "Flank Stretch": "flank_stretch.mp4",
+        }
+        
+        if selected in exercise_video_map:
+            self.guide_video_path = os.path.join("videos", exercise_video_map[selected])
+            print(f"Guide video updated to: {self.guide_video_path}")
+            
+            # If we have a video player, update its source
+            if hasattr(self, "media_player") and self.media_player:
+                self.media_player.setSource(QUrl.fromLocalFile(self.guide_video_path))
+                
+            # Reset repetition tracking
+            self.current_rep = 0
+            self.incorrect_reps = 0
+            self.update_rep_buttons()
+            
+            # Reset prediction label
+            self.reset_prediction_label()
+            
+            # Update the current exercise
+            self.current_exercise = selected
+        
+        # No need for additional reset code - already handled above
 
     def _create_sidebar(self):
         # Create sidebar widget
@@ -850,7 +979,7 @@ class MainWindow(QMainWindow):
         # Buttons
         self.start_button = QPushButton("Start")
         self.start_button.setFont(self.button_font)
-        self.start_button.clicked.connect(self.start_countdown)
+        self.start_button.clicked.connect(self.start_exercise)
         self.start_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.start_button.setStyleSheet(
             f"""
@@ -999,11 +1128,15 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(overall_container)
         self.resize(1024, 768)  # Set a reasonable default size
 
-    def start_countdown(self):
-        # If we're starting a new session or all reps are done, reset to first rep
+    def start_exercise(self):
+        """Start the exercise with a countdown"""
         if self.current_rep == 0 or self.current_rep > self.total_reps:
             self.current_rep = 1
             self.incorrect_reps = 0  # Reset incorrect repetitions counter
+            self.error_types = {}  # Track error types and their frequencies
+            self.current_rep_has_error = False  # Reset error flag for new rep
+            self.rep_errors = []  # Reset list of reps with errors
+            print(f"DEBUG - Starting new exercise session. Reset incorrect_reps to {self.incorrect_reps}")
             self.update_rep_buttons()
             
             # Create a new session if user is logged in and starting fresh
@@ -1074,9 +1207,22 @@ class MainWindow(QMainWindow):
             # Stop both the video guide and the feedback (pose estimation thread)
             self.stop_video()
             
+            # Check if the completed repetition had an error
+            completed_rep = self.current_rep
+            if self.current_rep_has_error:
+                # Only count a repetition as incorrect once, even if it had multiple errors
+                if completed_rep not in self.rep_errors:
+                    self.rep_errors.append(completed_rep)
+                    self.incorrect_reps += 1
+                    print(f"Rep {completed_rep} had errors. Incorrect reps: {self.incorrect_reps}/{len(self.rep_errors)}")
+            
+            # Reset error flag for next repetition
+            self.current_rep_has_error = False
+            
             # Update repetition tracking - one rep completed
             self.current_rep += 1
-            print(f"Completed repetition {self.current_rep - 1} of {self.total_reps}")
+            print(f"Completed repetition {completed_rep} of {self.total_reps}")
+            print(f"DEBUG - After completing rep, incorrect_reps count: {self.incorrect_reps}")
             
             # Update the rep buttons to reflect progress
             self.update_rep_buttons()
@@ -1084,12 +1230,13 @@ class MainWindow(QMainWindow):
             # If all reps are completed, show a message and record the session
             if self.current_rep > self.total_reps:
                 message = f"All {self.total_reps} repetitions completed!"
+                print(f"DEBUG - All reps completed. Final incorrect_reps count: {self.incorrect_reps}/{self.total_reps}")
                 
                 # Record the completed exercise in the database if user is logged in
                 if self.session_manager and self.session_manager.is_logged_in() and self.current_session_id:
                     self.record_completed_exercise()
             else:
-                message = f"Repetition {self.current_rep-1} completed. Click Start for next repetition."
+                message = f"Repetition {completed_rep} completed. Click Start for next repetition."
             
             # Set flag to prevent prediction updates
             self.showing_rep_message = True
@@ -1103,18 +1250,28 @@ class MainWindow(QMainWindow):
 
     def update_frame(self, frame, class_name):
         """Update the video label with a new frame."""
-        h, w, ch = frame.shape
-        bytes_per_line = ch * w
-        qimage = QImage(frame.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
-        pixmap = QPixmap.fromImage(qimage)
-        # Scale pixmap to fit label size and preserve aspect ratio
-        pixmap = pixmap.scaled(self.video_label.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-        self.video_label.setPixmap(pixmap)
-        
-        # Store the current prediction but don't update the label directly
-        self.current_prediction = class_name
-        self.update_prediction_if_allowed(class_name)
-        
+        try:
+            # Check if frame is valid
+            if frame is None or frame.size == 0:
+                print("Warning: Received empty frame")
+                return
+                
+            # Convert the frame to QImage
+            h, w, ch = frame.shape
+            bytes_per_line = ch * w
+            qimage = QImage(frame.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+            pixmap = QPixmap.fromImage(qimage)
+            # Scale pixmap to fit label size and preserve aspect ratio
+            pixmap = pixmap.scaled(self.video_label.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            self.video_label.setPixmap(pixmap)
+            
+            # Don't track errors here - we'll do it in update_prediction to avoid double counting
+            # Just pass the prediction to update_prediction
+            self.update_prediction(class_name)
+            
+        except Exception as e:
+            print(f"Error updating frame: {e}")
+    
     def reset_prediction_label(self):
         """Reset the prediction label to show the current prediction"""
         # This is now only called manually when needed
@@ -1238,19 +1395,34 @@ class MainWindow(QMainWindow):
                     exercise_id = query.value(0)
         
         if exercise_id:
-            # Record the exercise session
+            # Find the most frequent error type
+            error_note = "None"
+            if self.incorrect_reps > 0 and self.error_types:
+                # Get the most common error type (excluding "No Person")
+                filtered_errors = {k: v for k, v in self.error_types.items() if k != "No Person"}
+                if filtered_errors:
+                    most_common_error = max(filtered_errors.items(), key=lambda x: x[1])
+                    error_type, _ = most_common_error
+                    # Simplified format without occurrence count
+                    error_note = f"Majority Error: {error_type}"
+            
+            # Record the exercise session with the error count
             success = self.session_manager.record_exercise(
                 exercise_id, 
                 self.total_reps, 
-                self.incorrect_reps,
-                self.current_prediction if self.incorrect_reps > 0 else None  # Error type if any incorrect reps
+                self.incorrect_reps,  # This is now the count of repetitions with errors
+                error_note  # Most common error type
             )
             
             if success:
-                print(f"Successfully recorded exercise session: {self.current_exercise}, {self.total_reps} reps")
+                print(f"Successfully recorded exercise session: {self.current_exercise}, {self.total_reps} reps, {self.incorrect_reps} incorrect")
                 
-                # Complete the session
-                self.session_manager.complete_session()
+                # Complete the session with notes about errors
+                notes = None
+                if self.incorrect_reps > 0 and error_note:
+                    notes = error_note  # Just use the error note directly
+                self.session_manager.complete_session(notes)
+                
                 self.current_session_id = None  # Reset for next session
             else:
                 print("Failed to record exercise session")
@@ -1279,10 +1451,28 @@ class MainWindow(QMainWindow):
         # Store the current prediction
         self.current_prediction = prediction
         
-        # If prediction indicates an error, increment incorrect repetitions
-        if prediction != "Correct" and not self.showing_rep_message:
-            self.incorrect_reps += 1
-            print(f"Incorrect repetition detected: {prediction}, total incorrect: {self.incorrect_reps}")
+        # Debug info to track prediction state (less verbose)
+        if prediction not in ["Correct", "Waiting", "Waiting for prediction", "No Person"]:
+            print(f"DEBUG - Prediction: {prediction}, Current rep: {self.current_rep}")
+        
+        # Only flag the repetition as having an error if we're actively doing an exercise
+        # and not showing a message between repetitions
+        # Ignore "No Person" as it's not a valid error - just means the person wasn't detected
+        if (prediction not in ["Correct", "Waiting", "Waiting for prediction", "No Person"] and 
+            not self.showing_rep_message and
+            self.current_rep > 0 and 
+            self.current_rep <= self.total_reps):
+            
+            # Mark this repetition as having an error (we'll count it at the end of the rep)
+            self.current_rep_has_error = True
+            
+            # Track error types for statistics
+            if prediction in self.error_types:
+                self.error_types[prediction] += 1
+            else:
+                self.error_types[prediction] = 1
+                
+            print(f"Error detected in rep {self.current_rep}: {prediction}")
             
         self.update_prediction_if_allowed(prediction)
     

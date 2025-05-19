@@ -58,12 +58,12 @@ class PieChartWidget(QWidget):
         # Convert QRectF to QRect for compatibility
         rect_int = rect.toRect()
         
-        correct_brush = QBrush(QColor(constants.PRIMARY_800))
+        correct_brush = QBrush(QColor(constants.PRIMARY_300))
         painter.setBrush(correct_brush)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawPie(rect_int, 0, correct_degrees)
         
-        incorrect_brush = QBrush(QColor("#A3E4FF"))  
+        incorrect_brush = QBrush(QColor(constants.PRIMARY_800))  
         painter.setBrush(incorrect_brush)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawPie(rect_int, correct_degrees, incorrect_degrees)
@@ -276,7 +276,7 @@ class SessionOverviewWindow(QMainWindow):
             f"""
             background-color: white;
             border-radius: 10px;
-            border: 1px solid {constants.PRIMARY_300};
+            border: 1px solid {constants.PRIMARY_400};
             """
         )
         main_frame_layout = QVBoxLayout(main_frame)
@@ -326,7 +326,7 @@ class SessionOverviewWindow(QMainWindow):
         correct_color_box = QFrame()
         correct_color_box.setFixedSize(20, 20)
         correct_color_box.setStyleSheet(f"""
-            background-color: {constants.PRIMARY_800};
+            background-color: {constants.PRIMARY_300};
             border: none;
         """)
         
@@ -349,7 +349,7 @@ class SessionOverviewWindow(QMainWindow):
         incorrect_color_box = QFrame()
         incorrect_color_box.setFixedSize(20, 20)
         incorrect_color_box.setStyleSheet(f"""
-            background-color: #A3E4FF;
+            background-color: {constants.PRIMARY_800};
             border: none;
         """)
         
